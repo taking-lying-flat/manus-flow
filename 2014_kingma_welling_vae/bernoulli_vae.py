@@ -1,5 +1,4 @@
-"""
-Variational autoencoder (AEVB / SGVB) following Kingma & Welling, 2013: https://arxiv.org/pdf/1312.6114
+""" Variational autoencoder (AEVB / SGVB) following Kingma & Welling, 2013: https://arxiv.org/pdf/1312.6114
 """
 
 import torch
@@ -80,7 +79,8 @@ class VAE(nn.Module):
         return z, mu, logvar
 
     def sample(self, num_samples=64, device="cpu"):
-        """Prior samples z ~ p(z)=N(0,I), then x ~ p_theta(x|z). KL(q_phi(z|x) || p_theta(z)) regularizes the 
+        """
+        Prior samples z ~ p(z)=N(0,I), then x ~ p_theta(x|z). KL(q_phi(z|x) || p_theta(z)) regularizes the 
         encoder parameters phi, pushing the approximate posterior toward the prior N(0, I).
         """
         z = torch.randn(num_samples, self.n_latent_features, device=device)
