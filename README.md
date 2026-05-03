@@ -1,25 +1,21 @@
 ## Citation
 
 ```bibtex
-@inproceedings{kingma2014autoencoding,
+@article{Kingma2013AutoEncodingVB,
   title={Auto-Encoding Variational Bayes},
-  author={Kingma, Diederik P. and Welling, Max},
-  booktitle={International Conference on Learning Representations},
-  year={2014},
-  url={https://arxiv.org/abs/1312.6114}
+  author={Diederik P. Kingma and Max Welling},
+  journal={CoRR},
+  year={2013},
+  volume={abs/1312.6114},
+  url={https://api.semanticscholar.org/CorpusID:216078090}
 }
 
-@inproceedings{sohldickstein2015deep,
+@article{SohlDickstein2015DeepUL,
   title={Deep Unsupervised Learning using Nonequilibrium Thermodynamics},
-  author={Sohl-Dickstein, Jascha and Weiss, Eric and Maheswaranathan, Niru and Ganguli, Surya},
-  booktitle={Proceedings of the 32nd International Conference on Machine Learning},
-  pages={2256--2265},
+  author={Jascha Narain Sohl-Dickstein and Eric A. Weiss and Niru Maheswaranathan and Surya Ganguli},
+  journal={ArXiv},
   year={2015},
-  editor={Bach, Francis and Blei, David},
-  volume={37},
-  series={Proceedings of Machine Learning Research},
-  address={Lille, France},
-  publisher={PMLR},
-  url={https://proceedings.mlr.press/v37/sohl-dickstein15.html}
+  volume={abs/1503.03585},
+  url={https://api.semanticscholar.org/CorpusID:14888175}
 }
 ```
