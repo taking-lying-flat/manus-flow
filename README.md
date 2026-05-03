@@ -10,6 +10,14 @@
   url={https://api.semanticscholar.org/CorpusID:12554042}
 }
 
+@inproceedings{dinh2017density,
+  title={Density Estimation using Real {NVP}},
+  author={Dinh, Laurent and Sohl-Dickstein, Jascha and Bengio, Samy},
+  booktitle={International Conference on Learning Representations},
+  year={2017},
+  url={https://openreview.net/forum?id=HkpbnH9lx}
+}
+
 @article{Kingma2018GlowGF,
   title={Glow: Generative Flow with Invertible 1x1 Convolutions},
   author={Diederik P. Kingma and Prafulla Dhariwal},
