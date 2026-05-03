@@ -10,6 +10,15 @@
   url={https://api.semanticscholar.org/CorpusID:12554042}
 }
 
+@article{Kingma2018GlowGF,
+  title={Glow: Generative Flow with Invertible 1x1 Convolutions},
+  author={Diederik P. Kingma and Prafulla Dhariwal},
+  journal={ArXiv},
+  year={2018},
+  volume={abs/1807.03039},
+  url={https://api.semanticscholar.org/CorpusID:49657329}
+}
+
 @inproceedings{lipman2023flow,
   title={Flow Matching for Generative Modeling},
   author={Lipman, Yaron and Chen, Ricky T. Q. and Ben-Hamu, Heli and Nickel, Maximilian and Le, Matt},
