@@ -1,6 +1,14 @@
 ## Citation
 
 ```bibtex
+@article{Dinh2014NICENI,
+  title={NICE: Non-linear Independent Components Estimation},
+  author={Laurent Dinh and David Krueger and Yoshua Bengio},
+  journal={arXiv: Learning},
+  year={2014},
+  url={https://api.semanticscholar.org/CorpusID:13995862}
+}
+
 @article{JimenezRezende2015VariationalIW,
   title={Variational Inference with Normalizing Flows},
   author={Danilo Jimenez Rezende and Shakir Mohamed},
