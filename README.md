@@ -35,6 +35,15 @@
   url={https://api.semanticscholar.org/CorpusID:49657329}
 }
 
+@article{Liu2022FlowSA,
+  title={Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow},
+  author={Xingchao Liu and Chengyue Gong and Qiang Liu},
+  journal={ArXiv},
+  year={2022},
+  volume={abs/2209.03003},
+  url={https://api.semanticscholar.org/CorpusID:252111177}
+}
+
 @inproceedings{lipman2023flow,
   title={Flow Matching for Generative Modeling},
   author={Lipman, Yaron and Chen, Ricky T. Q. and Ben-Hamu, Heli and Nickel, Maximilian and Le, Matt},
