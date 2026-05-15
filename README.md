@@ -35,6 +35,14 @@
   url={https://api.semanticscholar.org/CorpusID:49657329}
 }
 
+@article{chen2018neural,
+  title={Neural ordinary differential equations},
+  author={Chen, Ricky TQ and Rubanova, Yulia and Bettencourt, Jesse and Duvenaud, David K},
+  journal={Advances in neural information processing systems},
+  volume={31},
+  year={2018}
+}
+
 @article{Liu2022FlowSA,
   title={Flow Straight and Fast: Learning to Generate and Transfer Data with Rectified Flow},
   author={Xingchao Liu and Chengyue Gong and Qiang Liu},
