@@ -14,7 +14,7 @@ CELEBA_ROOT = Path("/root/autodl-tmp/celeba")
 CIFAR10_ROOT = Path("/root/autodl-tmp/cifar10")
 FASHION_ROOT = Path("/root/autodl-tmp/fashion-mnist")
 
-CELEBA_IMG_DIR = CELEBA_ROOT / "img_align_celeba" / "img_align_celeba"
+CELEBA_IMG_DIR = CELEBA_ROOT / "img_align_celeba"
 CIFAR10_TRAIN_DIR = CIFAR10_ROOT / "train"
 CIFAR10_TEST_DIR = CIFAR10_ROOT / "test"
 
