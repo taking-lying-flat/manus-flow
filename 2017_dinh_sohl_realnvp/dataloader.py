@@ -12,8 +12,8 @@ CELEBA_ROOT  = Path("/root/autodl-tmp/celeba")
 CHURCH_ROOT  = Path("/root/autodl-tmp/church_outdoor")
 BEDROOM_ROOT = Path("/root/autodl-tmp/lsun_bedroom")
 
-CELEBA_IMG_DIR  = CELEBA_ROOT / "img_align_celeba" / "img_align_celeba"
-CHURCH_IMG_DIR  = CHURCH_ROOT / "img_align_celeba" / "img_align_celeba"
+CELEBA_IMG_DIR  = CELEBA_ROOT
+CHURCH_IMG_DIR  = CHURCH_ROOT
 BEDROOM_IMG_DIR = BEDROOM_ROOT
 
 NUM_WORKERS = 8
