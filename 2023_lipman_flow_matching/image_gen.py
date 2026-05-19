@@ -1,8 +1,6 @@
 import argparse
 import os
 import sys
-_HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _HERE)
 import torch
 import torch.nn as nn
 from torchvision import utils as tv_utils
