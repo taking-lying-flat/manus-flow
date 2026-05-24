@@ -13,7 +13,7 @@ PROJECT_DIR = Path(__file__).resolve().parent
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 CHANNELS = {
-    "stl-10": 3,
+    "stl-10": 1,
     "cifar-10": 3,
     "fashion-mnist": 1,
 }
