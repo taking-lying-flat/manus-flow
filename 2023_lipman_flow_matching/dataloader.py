@@ -8,7 +8,7 @@ from torch.utils.data import DataLoader, Dataset
 from torchvision import transforms
 
 BEDROOM_ROOT = Path("/root/autodl-tmp/lsun_bedroom")
-CHURCH_ROOT = Path("/root/autodl-tmp/church_outdoor") / "img_align_celeba" / "img_align_celeba"
+CHURCH_ROOT = Path("/root/autodl-tmp/church_outdoor")
 STL10_ROOT = Path("/root/autodl-tmp/stl10")
 
 TEST_HOLDOUT = 5000
