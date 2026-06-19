@@ -28,12 +28,10 @@ def setup_logger(log_dir, log_file="train.log", name="VAE"):
 
 def visualize_reconstruction(model, dataloader, device, save_path, num_images=8):
     model.eval()
-
     with torch.no_grad():
         inputs, _ = next(iter(dataloader))
         inputs = inputs[:num_images].to(device)
         recon, _, _ = model(inputs)
-
         comparison = torch.cat([inputs, recon])
         save_image(comparison.cpu(), save_path, nrow=num_images, normalize=True, pad_value=1)
 
