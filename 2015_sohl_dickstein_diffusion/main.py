@@ -10,14 +10,19 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import torch
+from _impl import diffusion
+from torch.utils.data import DataLoader
 from torchvision import utils as tv_utils
 
-from _impl import diffusion
-from dataloader import build_loaders, infinite_loader
+PROJECT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_DIR.parent))
+
+from dataloader import DATASET, build_cifar10_loader, infinite_images
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
@@ -51,18 +56,20 @@ DEFAULT_MODEL = ModelConfig(
 )
 
 
-def compute_normalization(loader: DataLoader, device: torch.device, n_batches: int = 10) -> tuple[float, float]:
+def compute_normalization(
+    loader: DataLoader, n_batches: int = 10
+) -> tuple[float, float]:
     """Estimate (scale, shift) so that scale * x + shift ~ N(0, 1)."""
     total, total_sq, count = 0.0, 0.0, 0
-    for i, batch in enumerate(loader):
+    for i, (batch, _) in enumerate(loader):
         if i >= n_batches:
             break
         x = batch.float()
         total += x.sum().item()
-        total_sq += (x ** 2).sum().item()
+        total_sq += (x**2).sum().item()
         count += x.numel()
     mean = total / count
-    std = (total_sq / count - mean ** 2) ** 0.5
+    std = (total_sq / count - mean**2) ** 0.5
     return 1.0 / std, -mean / std
 
 
@@ -86,21 +93,21 @@ def generate_samples(
 
 def train(args: argparse.Namespace) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    save_dir = Path(__file__).resolve().parent / "output" / args.dataset
+    save_dir = PROJECT_DIR / "output" / DATASET
     save_dir.mkdir(parents=True, exist_ok=True)
 
     # ---- data ----
-    loader, spec = build_loaders(args.dataset, args.batch_size)
-    batches = infinite_loader(loader)
+    loader = build_cifar10_loader(args.batch_size)
+    batches = infinite_images(loader)
 
     # ---- normalization ----
-    scale, shift = compute_normalization(loader, device)
+    scale, shift = compute_normalization(loader)
     uniform_noise = (1.0 / 255.0) / scale
 
     # ---- model ----
     model = diffusion.DiffusionModel(
-        spatial_width=spec.image_size,
-        channels=spec.in_channels,
+        spatial_width=32,
+        channels=3,
         uniform_noise=uniform_noise,
         **asdict(DEFAULT_MODEL),
     ).to(device)
@@ -108,17 +115,34 @@ def train(args: argparse.Namespace) -> None:
     if device.type == "cuda":
         model = model.to(memory_format=torch.channels_last)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.max_steps, eta_min=1e-5)
+    optimizer = torch.optim.AdamW(
+        model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-4
+    )
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=args.max_steps, eta_min=1e-5
+    )
 
     amp_enabled = device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
     torch.backends.cudnn.benchmark = True
 
     step = 0
-    LOGGER.info("dataset=%s  samples=%d  device=%s  save_dir=%s", args.dataset, len(loader.dataset), device, save_dir)
-    LOGGER.info("lr=%.6g  batch_size=%d  max_steps=%d  amp=%s  scale=%.4f  shift=%.4f",
-                args.lr, args.batch_size, args.max_steps, amp_enabled, scale, shift)
+    LOGGER.info(
+        "dataset=%s  samples=%d  device=%s  save_dir=%s",
+        DATASET,
+        len(loader.dataset),
+        device,
+        save_dir,
+    )
+    LOGGER.info(
+        "lr=%.6g  batch_size=%d  max_steps=%d  amp=%s  scale=%.4f  shift=%.4f",
+        args.lr,
+        args.batch_size,
+        args.max_steps,
+        amp_enabled,
+        scale,
+        shift,
+    )
 
     while step < args.max_steps:
         images = next(batches)
@@ -130,11 +154,15 @@ def train(args: argparse.Namespace) -> None:
         images = images * scale + shift
 
         optimizer.zero_grad(set_to_none=True)
-        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=amp_enabled):
+        with torch.autocast(
+            device_type=device.type, dtype=torch.float16, enabled=amp_enabled
+        ):
             loss = model(images)
 
         if not torch.isfinite(loss):
-            raise FloatingPointError(f"non-finite loss at step {step + 1}: {loss.item()}")
+            raise FloatingPointError(
+                f"non-finite loss at step {step + 1}: {loss.item()}"
+            )
 
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
@@ -146,8 +174,13 @@ def train(args: argparse.Namespace) -> None:
         step += 1
 
         if step == 1 or step % 50 == 0:
-            LOGGER.info("step=%d  loss=%.6f  grad_norm=%.4f  lr=%.3e",
-                         step, loss.item(), float(grad_norm), scheduler.get_last_lr()[0])
+            LOGGER.info(
+                "step=%d  loss=%.6f  grad_norm=%.4f  lr=%.3e",
+                step,
+                loss.item(),
+                float(grad_norm),
+                scheduler.get_last_lr()[0],
+            )
 
         if step % 1000 == 0:
             generate_samples(model, scale, shift, save_dir / f"samples_step_{step}.png")
@@ -157,8 +190,9 @@ def train(args: argparse.Namespace) -> None:
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Diffusion model training (Sohl-Dickstein 2015)")
-    parser.add_argument("--dataset", choices=["cifar10", "fashion-mnist"], default="cifar10")
+    parser = argparse.ArgumentParser(
+        description="Diffusion model training (Sohl-Dickstein 2015)"
+    )
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--max_steps", type=int, default=100_000)
     parser.add_argument("--lr", type=float, default=1e-3)

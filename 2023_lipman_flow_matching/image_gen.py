@@ -1,10 +1,8 @@
 import argparse
-import os
 import sys
-import torch
-import torch.nn as nn
-from torchvision import utils as tv_utils
+from pathlib import Path
 
+import torch
 from _impl.path import AffineProbPath, CondOTProbPath
 from _impl.scheduler import (
     CondOTScheduler,
@@ -14,35 +12,23 @@ from _impl.scheduler import (
     VPScheduler,
 )
 from _impl.solver import ODESolver
-from unet import UNetModel
 from _impl.utils import ModelWrapper
-from dataloader import build_loaders
+from torch import nn
+from torchvision import utils as tv_utils
+from unet import UNetModel
 
-UNET_CONFIGS = {
-    "stl-10": {
-        "base_channels": 128,
-        "num_res_blocks": 2,
-        "attention_resolutions": (4, 8, 16),
-        "dropout": 0.1,
-        "channel_mult": (1, 2, 4, 8),
-        "num_heads": 4,
-    },
-    "bedroom": {
-        "base_channels": 128,
-        "num_res_blocks": 2,
-        "attention_resolutions": (4, 8, 16),
-        "dropout": 0.0,
-        "channel_mult": (1, 2, 4, 8),
-        "num_heads": 4,
-    },
-    "church": {
-        "base_channels": 128,
-        "num_res_blocks": 2,
-        "attention_resolutions": (4, 8, 16),
-        "dropout": 0.0,
-        "channel_mult": (1, 2, 4, 8),
-        "num_heads": 4,
-    },
+PROJECT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_DIR.parent))
+
+from dataloader import CIFAR10_SPEC, DATASET, build_cifar10_loader
+
+UNET_CONFIG = {
+    "base_channels": 128,
+    "num_res_blocks": 2,
+    "attention_resolutions": (4, 8, 16),
+    "dropout": 0.1,
+    "channel_mult": (1, 2, 4),
+    "num_heads": 4,
 }
 
 
@@ -53,7 +39,7 @@ def generate_samples(
     device: torch.device,
     steps: int,
     ode_method: str,
-    out_path: str,
+    out_path: Path,
     num_samples: int = 64,
 ) -> None:
     model.eval()
@@ -68,7 +54,7 @@ def generate_samples(
         x_init=x_init, step_size=1.0 / steps, method=ode_method, time_grid=time_grid
     )
 
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
     tv_utils.save_image(samples, out_path, nrow=8, normalize=True, value_range=(-1, 1))
 
 
@@ -105,25 +91,25 @@ def build_path(args: argparse.Namespace):
 
 
 def train(args: argparse.Namespace) -> None:
-    project_root = os.path.dirname(os.path.abspath(__file__))
-    save_dir = os.path.join(project_root, "runs", args.dataset)
-    
+    save_dir = PROJECT_DIR / "runs" / DATASET
+
     device = torch.device(args.device)
 
-    loader, spec = build_loaders(args.dataset, args.batch_size)
-    unet_cfg = UNET_CONFIGS.get(args.dataset)
-    if unet_cfg is None:
-        raise ValueError(f"Missing UNet config for dataset {args.dataset}")
+    loader = build_cifar10_loader(
+        args.batch_size,
+        value_range="minus_one_one",
+    )
+    spec = CIFAR10_SPEC
     model = UNetModel(
         image_size=spec.image_size,
         in_channels=spec.in_channels,
-        model_channels=unet_cfg["base_channels"],
+        model_channels=UNET_CONFIG["base_channels"],
         out_channels=spec.in_channels,
-        num_res_blocks=unet_cfg["num_res_blocks"],
-        attention_resolutions=unet_cfg["attention_resolutions"],
-        dropout=unet_cfg["dropout"],
-        channel_mult=unet_cfg["channel_mult"],
-        num_heads=unet_cfg["num_heads"],
+        num_res_blocks=UNET_CONFIG["num_res_blocks"],
+        attention_resolutions=UNET_CONFIG["attention_resolutions"],
+        dropout=UNET_CONFIG["dropout"],
+        channel_mult=UNET_CONFIG["channel_mult"],
+        num_heads=UNET_CONFIG["num_heads"],
     ).to(device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -133,11 +119,13 @@ def train(args: argparse.Namespace) -> None:
     loss_fn = nn.MSELoss()
     path = build_path(args)
 
-    os.makedirs(save_dir, exist_ok=True)
+    save_dir.mkdir(parents=True, exist_ok=True)
     step = 0
 
-    print(f"dataset={args.dataset} device={args.device} save_dir={save_dir}")
-    print(f"path={args.path} scheduler={args.scheduler} ode_method={args.ode_method} lr={args.lr:.6f}")
+    print(f"dataset={DATASET} device={args.device} save_dir={save_dir}")
+    print(
+        f"path={args.path} scheduler={args.scheduler} ode_method={args.ode_method} lr={args.lr:.6f}"
+    )
 
     for epoch in range(args.epochs):
         model.train()
@@ -161,7 +149,7 @@ def train(args: argparse.Namespace) -> None:
                 args.num_generate_steps_interval > 0
                 and step % args.num_generate_steps_interval == 0
             ):
-                out_path = os.path.join(save_dir, f"samples_step_{step}.png")
+                out_path = save_dir / f"samples_step_{step}.png"
                 generate_samples(
                     model,
                     spec,
@@ -176,7 +164,7 @@ def train(args: argparse.Namespace) -> None:
         lr_scheduler.step()
         print(f"epoch={epoch} done")
 
-    ckpt_path = os.path.join(save_dir, "model_final.pt")
+    ckpt_path = save_dir / "model_final.pt"
     torch.save(
         {
             "model": model.state_dict(),
@@ -190,7 +178,7 @@ def train(args: argparse.Namespace) -> None:
     print(f"saved final checkpoint to {ckpt_path}")
 
     if args.generate_after:
-        out_path = os.path.join(save_dir, "samples_final.png")
+        out_path = save_dir / "samples_final.png"
         generate_samples(
             model,
             spec,
@@ -205,7 +193,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Flow Matching Training")
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument(
+        "--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu"
+    )
     parser.add_argument("--num_generate_steps_interval", type=int, default=1000)
     parser.add_argument("--num_sampling_ode_steps", type=int, default=200)
     parser.add_argument("--lr", type=float, default=1e-4)
@@ -214,11 +204,6 @@ def build_arg_parser() -> argparse.ArgumentParser:
         type=str,
         default="euler",
         choices=["euler", "dopri5", "midpoint", "heun3"],
-    )
-    parser.add_argument(
-        "--dataset",
-        choices=["stl-10", "bedroom", "church"],
-        default="bedroom",
     )
     parser.add_argument(
         "--path",
@@ -263,4 +248,3 @@ def build_arg_parser() -> argparse.ArgumentParser:
 if __name__ == "__main__":
     args = build_arg_parser().parse_args()
     train(args)
-

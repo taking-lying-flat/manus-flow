@@ -1,55 +1,35 @@
-import os
 import pickle
+import sys
+from pathlib import Path
+
 import torch
-import torch.optim as optim
-import torchvision.transforms as transforms
-from torchvision.datasets import MNIST, FashionMNIST
 from bernoulli_vae import VAE
+from torch import optim
 from utils import create_visualization_grid, setup_logger
 
+PROJECT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_DIR.parent))
 
-DATASET = "mnist"
+from dataloader import CIFAR10_SPEC, DATASET, build_cifar10_loader
 
-
-def get_config(dataset_name: str) -> dict:
-    configs = {
-        "mnist": {
-            "image_shape": (1, 28, 28),
-            "hidden_dim": 400,
-            "lr": 1e-3,
-            "batch_size": 100,
-            "latent_dim": 20,
-            "epochs": 50,
-            "num_workers": 16,
-            "save_dir": None,
-        },
-        "fashion-mnist": {
-            "image_shape": (1, 28, 28),
-            "hidden_dim": 400,
-            "lr": 1e-3,
-            "batch_size": 100,
-            "latent_dim": 20,
-            "epochs": 50,
-            "num_workers": 16,
-            "save_dir": None,
-        },
-    }
-    if dataset_name not in configs:
-        raise ValueError(f"Unknown or unsupported dataset: {dataset_name}")
-    return configs[dataset_name]
+IMAGE_SHAPE = (
+    CIFAR10_SPEC.in_channels,
+    CIFAR10_SPEC.image_size,
+    CIFAR10_SPEC.image_size,
+)
+HIDDEN_DIM = 400
+LATENT_DIM = 20
+BATCH_SIZE = 100
+EPOCHS = 50
+LEARNING_RATE = 1e-3
+NUM_WORKERS = 8
 
 
-def load_data(dataset_name: str, batch_size: int, num_workers: int):
-    data_transform = transforms.Compose([transforms.ToTensor()])
-    if dataset_name == "mnist":
-        train = MNIST(root="./data", train=True, transform=data_transform, download=True)
-    elif dataset_name == "fashion-mnist":
-        train = FashionMNIST(root="./data", train=True, transform=data_transform, download=True)
-    else:
-        raise ValueError(f"Unknown dataset: {dataset_name}")
-
-    return torch.utils.data.DataLoader(
-        train, batch_size=batch_size, shuffle=True, num_workers=num_workers
+def load_data(batch_size: int, num_workers: int):
+    return build_cifar10_loader(
+        batch_size,
+        num_workers=num_workers,
+        drop_last=False,
     )
 
 
@@ -62,7 +42,7 @@ def train_epoch(model, train_loader, optimizer, device, epoch, epochs, history, 
 
     for inputs, _ in train_loader:
         inputs = inputs.to(device)
-        optimizer.zero_grad()
+        optimizer.zero_grad(set_to_none=True)
         recon_batch, mu, logvar = model(inputs)
 
         bce, kld, loss = model.loss_function(recon_batch, inputs, mu, logvar)
@@ -113,10 +93,14 @@ def fit(model, train_loader, optimizer, device, epochs, save_dir, logger):
     }
 
     for epoch in range(epochs):
-        train_epoch(model, train_loader, optimizer, device, epoch, epochs, history, logger)
+        train_epoch(
+            model, train_loader, optimizer, device, epoch, epochs, history, logger
+        )
 
     logger.info("💾 Saving checkpoint and history")
-    save_checkpoint(model, optimizer, epochs, history, f"{save_dir}/checkpoint_final.pth")
+    save_checkpoint(
+        model, optimizer, epochs, history, f"{save_dir}/checkpoint_final.pth"
+    )
     save_history(history, f"{save_dir}/history.pkl")
     logger.info("📷 Saving reconstruction & sample figures")
     create_visualization_grid(model, train_loader, device, save_dir, "final")
@@ -125,42 +109,32 @@ def fit(model, train_loader, optimizer, device, epochs, save_dir, logger):
 
 
 def main():
-    cfg = get_config(DATASET)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    batch_size = cfg["batch_size"]
-    lr = cfg["lr"]
-    latent_dim = cfg["latent_dim"]
-    hidden_dim = cfg["hidden_dim"]
-    epochs = cfg["epochs"]
-    num_workers = cfg["num_workers"]
-    save_dir = cfg["save_dir"] if cfg["save_dir"] else f"output/{DATASET}"
-
-    if not os.path.exists(save_dir):
-        os.makedirs(save_dir)
+    save_dir = PROJECT_DIR / "output" / DATASET
+    save_dir.mkdir(parents=True, exist_ok=True)
 
     logger = setup_logger(save_dir, log_file="train.log")
 
     model = VAE(
-        image_shape=cfg["image_shape"],
-        hidden_dim=hidden_dim,
-        n_latent_features=latent_dim,
+        image_shape=IMAGE_SHAPE,
+        hidden_dim=HIDDEN_DIM,
+        n_latent_features=LATENT_DIM,
     )
     model.to(device)
 
     if device == "cuda":
         torch.backends.cudnn.benchmark = True
 
-    train_loader = load_data(DATASET, batch_size=batch_size, num_workers=num_workers)
-    optimizer = optim.Adam(model.parameters(), lr=lr)
+    train_loader = load_data(BATCH_SIZE, NUM_WORKERS)
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     logger.info(
-        f"🚀 Start  dataset={DATASET}  device={device}  epochs={epochs}  "
-        f"bs={batch_size}  lr={lr}  latent={latent_dim}  hidden={hidden_dim}  "
+        f"🚀 Start  dataset={DATASET}  device={device}  epochs={EPOCHS}  "
+        f"bs={BATCH_SIZE}  lr={LEARNING_RATE}  latent={LATENT_DIM}  hidden={HIDDEN_DIM}  "
         f"n_samples={len(train_loader.dataset)}  out={save_dir}"
     )
 
-    history = fit(model, train_loader, optimizer, device, epochs, save_dir, logger)
+    history = fit(model, train_loader, optimizer, device, EPOCHS, save_dir, logger)
 
     logger.info(
         f"✅ Done  loss={history['train_loss'][-1]:.4f}  "

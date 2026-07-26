@@ -1,29 +1,28 @@
 import argparse
+import sys
 from pathlib import Path
 
 import torch
+from _impl import DLGMNF, beta_schedule
 from torch import optim
 from torchvision import utils
 
-from dataloader import IMAGE_SIZE, build_loader
-from _impl import DLGMNF, beta_schedule
-
 PROJECT_DIR = Path(__file__).resolve().parent
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+sys.path.insert(0, str(PROJECT_DIR.parent))
 
-CHANNELS = {
-    "cifar-10": 3,
-    "fashion-mnist": 1,
-}
+from dataloader import (
+    CHANNELS,
+    DATASET,
+    IMAGE_SIZE,
+    build_cifar10_loader,
+    infinite_batches,
+)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train DLGM with Normalizing Flow.")
-    parser.add_argument(
-        "--dataset",
-        default="fashion-mnist",
-        choices=["cifar-10", "fashion-mnist"],
-    )
     parser.add_argument("--batch-size", default=100, type=int)
     parser.add_argument("--iterations", default=50000, type=int)
     parser.add_argument("--hidden-dim", default=512, type=int)
@@ -32,8 +31,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--lr", default=1e-4, type=float)
     parser.add_argument("--beta-start", default=0.01, type=float)
     parser.add_argument("--beta-warmup-steps", default=10000, type=int)
-    parser.add_argument("--log-interval", default=100, type=int, help="steps between loss prints")
-    parser.add_argument("--ckpt-interval", default=5000, type=int, help="steps between checkpoint saves (overwrites)")
+    parser.add_argument(
+        "--log-interval", default=100, type=int, help="steps between loss prints"
+    )
+    parser.add_argument(
+        "--ckpt-interval",
+        default=5000,
+        type=int,
+        help="steps between checkpoint saves (overwrites)",
+    )
     return parser.parse_args()
 
 
@@ -51,16 +57,16 @@ def save_samples(model: DLGMNF, output_dir: Path, step: int) -> None:
 
 
 def train(args: argparse.Namespace) -> None:
-    output_dir = PROJECT_DIR / f"runs/{args.dataset}"
+    output_dir = PROJECT_DIR / "runs" / DATASET
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_path = output_dir / "checkpoint.pt"
 
-    image_size = IMAGE_SIZE[args.dataset]
-    channels = CHANNELS[args.dataset]
+    image_size = IMAGE_SIZE
+    channels = CHANNELS
     image_shape = (channels, image_size, image_size)
     input_dim = channels * image_size * image_size
 
-    train_loader = build_loader(args, image_size)
+    train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
 
     model = DLGMNF(
         input_dim=input_dim,
@@ -102,11 +108,9 @@ def train(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = parse_args()
-    image_size = IMAGE_SIZE[args.dataset]
-    channels = CHANNELS[args.dataset]
     print(
-        f"Training DLGM K={args.flow_length} on {args.dataset}"
-        f" ({channels}x{image_size}x{image_size})  device={device}"
+        f"Training DLGM K={args.flow_length} on {DATASET}"
+        f" ({CHANNELS}x{IMAGE_SIZE}x{IMAGE_SIZE})  device={device}"
     )
     train(args)
 

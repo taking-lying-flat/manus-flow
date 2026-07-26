@@ -3,20 +3,24 @@ from __future__ import annotations
 import argparse
 import logging
 import math
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 import torch
-from torch import Tensor, nn
-from torchvision import utils as tv_utils
-
-from _impl.config import DataConfig, EXPERIMENT_CONFIGS, build_runtime_config
+from _impl.config import EXPERIMENT_CONFIG, DataConfig, build_runtime_config
 from _impl.ema import EMAHelper
 from _impl.loss import anneal_dsm_score_estimation
 from _impl.model import NCSNv2
 from _impl.scheduler import get_sigmas
 from _impl.solver import anneal_Langevin_dynamics
-from dataloader import build_loaders, infinite_loader
+from torch import Tensor, nn
+from torchvision import utils as tv_utils
+
+PROJECT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_DIR.parent))
+
+from dataloader import DATASET, build_cifar10_loader, infinite_images
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
@@ -28,7 +32,6 @@ LOGGER = logging.getLogger(__name__)
 
 @dataclass(frozen=True, slots=True)
 class TrainArgs:
-    dataset: str
     variant: str | None
     ema: bool | None
     batch_size: int | None
@@ -76,18 +79,22 @@ def generate_samples(
 
 def train(args: TrainArgs) -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    experiment = EXPERIMENT_CONFIGS[args.dataset]
+    experiment = EXPERIMENT_CONFIG
     batch_size = args.batch_size or experiment.training.batch_size
     max_steps = args.max_steps or experiment.training.n_iters
 
     model_config = build_runtime_config(experiment, device=device, variant=args.variant)
     use_ema = model_config.model.ema if args.ema is None else args.ema
 
-    run_dir = Path(__file__).resolve().parent / "runs" / args.dataset
+    run_dir = PROJECT_DIR / "runs" / DATASET
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    loader = build_loaders(experiment.data, batch_size)
-    batches = infinite_loader(loader)
+    loader = build_cifar10_loader(
+        batch_size,
+        dequantization="uniform",
+        num_workers=experiment.data.num_workers,
+    )
+    batches = infinite_images(loader)
 
     sigmas = get_sigmas(model_config)
     model = NCSNv2(model_config).to(device)
@@ -117,7 +124,7 @@ def train(args: TrainArgs) -> None:
 
     LOGGER.info(
         "dataset=%s variant=%s ema=%s samples=%d device=%s",
-        args.dataset,
+        DATASET,
         model_config.model.variant,
         use_ema,
         len(loader.dataset),
@@ -138,7 +145,9 @@ def train(args: TrainArgs) -> None:
             images = images.contiguous(memory_format=torch.channels_last)
 
         optimizer.zero_grad(set_to_none=True)
-        with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=amp_enabled):
+        with torch.autocast(
+            device_type=device.type, dtype=torch.float16, enabled=amp_enabled
+        ):
             loss = anneal_dsm_score_estimation(
                 scorenet=model,
                 samples=images,
@@ -190,8 +199,6 @@ def train(args: TrainArgs) -> None:
 
 def parse_args() -> TrainArgs:
     parser = argparse.ArgumentParser(description="NCSNv2 training")
-    parser.add_argument("--dataset", choices=sorted(EXPERIMENT_CONFIGS), default="cifar10")
-
     parser.add_argument(
         "--variant",
         choices=("base", "deeper", "deepest"),
@@ -205,14 +212,17 @@ def parse_args() -> TrainArgs:
         default=None,
         help="override EMA setting from the selected experiment config",
     )
-    parser.add_argument("--batch-size", "--batch_size", dest="batch_size", type=int, default=None)
-    parser.add_argument("--max-steps", "--max_steps", dest="max_steps", type=int, default=None)
+    parser.add_argument(
+        "--batch-size", "--batch_size", dest="batch_size", type=int, default=None
+    )
+    parser.add_argument(
+        "--max-steps", "--max_steps", dest="max_steps", type=int, default=None
+    )
     parser.add_argument("--lr", type=float, default=1e-4)
 
     namespace = parser.parse_args()
 
     return TrainArgs(
-        dataset=namespace.dataset,
         variant=namespace.variant,
         ema=namespace.ema,
         batch_size=namespace.batch_size,

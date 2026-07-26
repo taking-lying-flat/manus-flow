@@ -1,25 +1,28 @@
 import argparse
+import sys
 from pathlib import Path
 
 import torch
+from _impl import Glow, calc_loss, calc_z_shapes, preprocess_image
 from torch import nn, optim
 from torchvision import utils
 
-from dataloader import IMAGE_SIZE, build_loader
-from _impl import Glow, calc_loss, calc_z_shapes, preprocess_image
-
 PROJECT_DIR = Path(__file__).resolve().parent
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+sys.path.insert(0, str(PROJECT_DIR.parent))
 
-CHANNELS = {
-    "cifar-10": 3,
-    "fashion-mnist": 1,
-}
+from dataloader import (
+    CHANNELS,
+    DATASET,
+    IMAGE_SIZE,
+    build_cifar10_loader,
+    infinite_batches,
+)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train Glow.")
-    parser.add_argument("--dataset", default="cifar-10", choices=["cifar-10", "fashion-mnist"])
     parser.add_argument("--batch-size", default=128, type=int)
     parser.add_argument("--iterations", default=100000, type=int)
     parser.add_argument("--n-flow", default=32, type=int)
@@ -29,25 +32,50 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--temp", default=0.7, type=float)
     parser.add_argument("--n-sample", default=20, type=int)
     parser.add_argument("--affine", default=True, action=argparse.BooleanOptionalAction)
-    parser.add_argument("--conv-lu", default=True, action=argparse.BooleanOptionalAction)
-    parser.add_argument("--warmup", default=10000, type=int, help="Linear LR warmup steps (0 = no warmup)")
-    parser.add_argument("--log-interval", default=100, type=int, help="steps between loss prints")
-    parser.add_argument("--ckpt-interval", default=2500, type=int, help="steps between checkpoint saves (overwrites)")
+    parser.add_argument(
+        "--conv-lu", default=True, action=argparse.BooleanOptionalAction
+    )
+    parser.add_argument(
+        "--warmup",
+        default=10000,
+        type=int,
+        help="Linear LR warmup steps (0 = no warmup)",
+    )
+    parser.add_argument(
+        "--log-interval", default=100, type=int, help="steps between loss prints"
+    )
+    parser.add_argument(
+        "--ckpt-interval",
+        default=2500,
+        type=int,
+        help="steps between checkpoint saves (overwrites)",
+    )
     return parser.parse_args()
 
 
 def build_model(args: argparse.Namespace, in_channels: int) -> Glow:
-    return Glow(in_channels, args.n_flow, args.n_block, affine=args.affine, conv_lu=args.conv_lu)
+    return Glow(
+        in_channels, args.n_flow, args.n_block, affine=args.affine, conv_lu=args.conv_lu
+    )
 
 
 @torch.no_grad()
-def make_z_samples(args: argparse.Namespace, image_size: int, in_channels: int) -> list[torch.Tensor]:
+def make_z_samples(
+    args: argparse.Namespace, image_size: int, in_channels: int
+) -> list[torch.Tensor]:
     z_shapes = calc_z_shapes(in_channels, image_size, args.n_block)
     return [torch.randn(args.n_sample, *s, device=device) * args.temp for s in z_shapes]
 
 
 @torch.no_grad()
-def save_samples(model: Glow, args: argparse.Namespace, image_size: int, in_channels: int, step: int, output_dir: Path) -> None:
+def save_samples(
+    model: Glow,
+    args: argparse.Namespace,
+    image_size: int,
+    in_channels: int,
+    step: int,
+    output_dir: Path,
+) -> None:
     sample_dir = output_dir / "samples"
     sample_dir.mkdir(parents=True, exist_ok=True)
 
@@ -56,20 +84,26 @@ def save_samples(model: Glow, args: argparse.Namespace, image_size: int, in_chan
     model.train()
 
     grid_path = sample_dir / f"sample_grid_{step:06d}.jpg"
-    utils.save_image(images, grid_path, normalize=True, nrow=10, value_range=(-0.5, 0.5))
+    utils.save_image(
+        images, grid_path, normalize=True, nrow=10, value_range=(-0.5, 0.5)
+    )
 
 
 def train(args: argparse.Namespace) -> None:
-    output_dir = PROJECT_DIR / f"runs/{args.dataset}"
+    output_dir = PROJECT_DIR / "runs" / DATASET
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_path = output_dir / "checkpoint.pt"
 
-    image_size = IMAGE_SIZE[args.dataset]
-    in_channels = CHANNELS[args.dataset]
-    train_loader = build_loader(args, image_size)
+    image_size = IMAGE_SIZE
+    in_channels = CHANNELS
+    train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
 
     model_single = build_model(args, in_channels).to(device)
-    model = nn.DataParallel(model_single).to(device) if device.type == "cuda" else model_single
+    model = (
+        nn.DataParallel(model_single).to(device)
+        if device.type == "cuda"
+        else model_single
+    )
     optimizer = optim.Adamax(model.parameters(), lr=args.lr)
 
     model.train()
@@ -80,7 +114,7 @@ def train(args: argparse.Namespace) -> None:
         if step == 1:
             with torch.no_grad():
                 model_single(image + torch.rand_like(image) / n_bins)
-            print(f"ActNorm initialized ({args.dataset}, {image_size}x{image_size}).")
+            print(f"ActNorm initialized ({DATASET}, {image_size}x{image_size}).")
             continue
 
         log_p, logdet, _ = model(image + torch.rand_like(image) / n_bins)
@@ -104,9 +138,9 @@ def train(args: argparse.Namespace) -> None:
 
 def main() -> None:
     args = parse_args()
-    image_size = IMAGE_SIZE[args.dataset]
-    in_channels = CHANNELS[args.dataset]
-    print(f"Training Glow on {args.dataset} ({in_channels}x{image_size}x{image_size})  device={device}")
+    print(
+        f"Training Glow on {DATASET} ({CHANNELS}x{IMAGE_SIZE}x{IMAGE_SIZE})  device={device}"
+    )
     train(args)
 
 

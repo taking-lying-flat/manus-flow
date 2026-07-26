@@ -1,3 +1,16 @@
+## Manus Flow
+
+All image-model examples use CIFAR-10 through the shared `dataloader.py`.
+The training split is downloaded automatically to `data/`; no dataset or data-path
+argument is required.
+
+For example:
+
+```bash
+python 2023_lipman_flow_matching/image_gen.py --help
+python 2023_lipman_flow_matching/image_gen.py
+```
+
 ## Citation
 
 ```bibtex

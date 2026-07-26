@@ -1,31 +1,29 @@
 import argparse
+import sys
 from pathlib import Path
 
 import torch
+import util
+from _impl import NICE
 from torch import nn, optim
-from torch.utils.data import DataLoader
 from torchvision import utils
 
-import util
-from dataloader import IMAGE_SIZE, build_loader
-from _impl import NICE
-
 PROJECT_DIR = Path(__file__).resolve().parent
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+sys.path.insert(0, str(PROJECT_DIR.parent))
 
-CHANNELS = {
-    "cifar-10": 3,
-    "fashion-mnist": 1,
-}
+from dataloader import (
+    CHANNELS,
+    DATASET,
+    IMAGE_SIZE,
+    build_cifar10_loader,
+    infinite_batches,
+)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Train NICE.")
-    parser.add_argument(
-        "--dataset",
-        default="cifar-10",
-        choices=["cifar-10", "fashion-mnist"],
-    )
     parser.add_argument("--batch-size", default=512, type=int)
     parser.add_argument("--iterations", default=50000, type=int)
     parser.add_argument("--num-coupling-layers", default=4, type=int)
@@ -35,15 +33,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--max-grad-norm", default=100.0, type=float)
     parser.add_argument("--weight-decay", default=5e-5, type=float)
     parser.add_argument("--num-samples", default=64, type=int)
-    parser.add_argument("--log-interval", default=100, type=int, help="steps between loss prints")
-    parser.add_argument("--ckpt-interval", default=1000, type=int, help="steps between checkpoint saves (overwrites)")
+    parser.add_argument(
+        "--log-interval", default=100, type=int, help="steps between loss prints"
+    )
+    parser.add_argument(
+        "--ckpt-interval",
+        default=1000,
+        type=int,
+        help="steps between checkpoint saves (overwrites)",
+    )
     return parser.parse_args()
 
 
-def data_dim_for(dataset: str) -> int:
-    h = IMAGE_SIZE[dataset]
-    c = CHANNELS[dataset]
-    return c * h * h
+def data_dim() -> int:
+    return CHANNELS * IMAGE_SIZE * IMAGE_SIZE
 
 
 def build_model(args: argparse.Namespace, data_dim: int) -> NICE:
@@ -67,7 +70,7 @@ def save_samples(
     image_size: int,
     step: int,
     output_dir: Path,
-) -> Path:
+) -> None:
     sample_dir = output_dir / "samples"
     sample_dir.mkdir(parents=True, exist_ok=True)
 
@@ -78,25 +81,25 @@ def save_samples(
     net.train()
 
     grid_path = sample_dir / f"sample_grid_{step:06d}.png"
-    nrow = int(args.num_samples ** 0.5)
+    nrow = int(args.num_samples**0.5)
     grid = utils.make_grid(images, nrow=nrow, padding=2, pad_value=1.0)
     utils.save_image(grid, grid_path)
-    return grid_path
 
 
 def train(args: argparse.Namespace) -> None:
-    output_dir = PROJECT_DIR / f"runs/{args.dataset}"
+    output_dir = PROJECT_DIR / "runs" / DATASET
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_path = output_dir / "checkpoint.pt"
 
-    image_size = IMAGE_SIZE[args.dataset]
-    channels = CHANNELS[args.dataset]
-    data_dim = data_dim_for(args.dataset)
+    image_size = IMAGE_SIZE
+    channels = CHANNELS
+    input_dim = data_dim()
+    train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
 
-    train_loader = build_loader(args, image_size)
-
-    net_single = build_model(args, data_dim).to(device)
-    net = nn.DataParallel(net_single).to(device) if device.type == "cuda" else net_single
+    net_single = build_model(args, input_dim).to(device)
+    net = (
+        nn.DataParallel(net_single).to(device) if device.type == "cuda" else net_single
+    )
 
     param_groups = util.get_param_groups(net, args.weight_decay)
     optimizer = optim.Adam(param_groups, lr=args.lr)
@@ -129,23 +132,19 @@ def train(args: argparse.Namespace) -> None:
             avg_nll = running["nll"] / N
             bpd = util.bits_per_dim(x_in, avg_nll, num_bits=8)
             print(
-                f"step={step}"
-                f"  loss={avg_nll:.4f}"
-                f"  bpd={bpd:.4f}"
-                f"  |g|={grad_norm:.2f}"
+                f"step={step}  loss={avg_nll:.4f}  bpd={bpd:.4f}  |g|={grad_norm:.2f}"
             )
             running = {"nll": 0.0, "n": 0}
 
         if step % args.ckpt_interval == 0 or step == args.iterations:
             torch.save(net_single.state_dict(), ckpt_path)
-            grid_path = save_samples(net_single, args, channels, image_size, step, output_dir)
+            save_samples(net_single, args, channels, image_size, step, output_dir)
             print(f"Step {step}: saved checkpoint + samples")
 
 
 def main() -> None:
     args = parse_args()
-    image_size = IMAGE_SIZE[args.dataset]
-    print(f"Training NICE on {args.dataset} ({image_size}x{image_size})  device={device}")
+    print(f"Training NICE on {DATASET} ({IMAGE_SIZE}x{IMAGE_SIZE})  device={device}")
     train(args)
 
 

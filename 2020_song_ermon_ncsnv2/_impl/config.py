@@ -7,15 +7,10 @@ import torch
 
 @dataclass(frozen=True, slots=True)
 class DataConfig:
-    dataset: str
     image_size: int
     channels: int
-    category: str | None = None
-    random_flip: bool = False
     num_workers: int = 8
     logit_transform: bool = False
-    uniform_dequantization: bool = False
-    gaussian_dequantization: bool = False
     rescaled: bool = False
 
 
@@ -54,47 +49,23 @@ class RuntimeConfig:
     device: torch.device
 
 
-EXPERIMENT_CONFIGS: dict[str, ExperimentConfig] = {
-    "cifar10": ExperimentConfig(
-        data=DataConfig(
-            dataset="cifar10",
-            image_size=32,
-            channels=3,
-            random_flip=True,
-            uniform_dequantization=True,
-        ),
-        model=ModelConfig(
-            ngf=128,
-            num_noise_levels=232,
-            sigma_begin=50,
-            sigma_end=0.01,
-            nonlinearity="elu",
-            normalization="InstanceNorm++",
-            ema=True,
-            ema_rate=0.999,
-        ),
-        training=TrainingConfig(sample_steps_each=5),
+EXPERIMENT_CONFIG = ExperimentConfig(
+    data=DataConfig(
+        image_size=32,
+        channels=3,
     ),
-    "celeba": ExperimentConfig(
-        data=DataConfig(
-            dataset="celeba",
-            image_size=64,
-            channels=3,
-            random_flip=True,
-            num_workers=32,
-        ),
-        model=ModelConfig(
-            ngf=128,
-            num_noise_levels=500,
-            sigma_begin=90.0,
-            sigma_end=0.01,
-            nonlinearity="elu",
-            normalization="InstanceNorm++",
-            ema=True,
-        ),
-        training=TrainingConfig(n_iters=200_001),
+    model=ModelConfig(
+        ngf=128,
+        num_noise_levels=232,
+        sigma_begin=50,
+        sigma_end=0.01,
+        nonlinearity="elu",
+        normalization="InstanceNorm++",
+        ema=True,
+        ema_rate=0.999,
     ),
-}
+    training=TrainingConfig(sample_steps_each=5),
+)
 
 
 def build_runtime_config(
@@ -103,5 +74,9 @@ def build_runtime_config(
     device: torch.device,
     variant: str | None,
 ) -> RuntimeConfig:
-    model = experiment.model if variant is None else replace(experiment.model, variant=variant)
+    model = (
+        experiment.model
+        if variant is None
+        else replace(experiment.model, variant=variant)
+    )
     return RuntimeConfig(data=experiment.data, model=model, device=device)
