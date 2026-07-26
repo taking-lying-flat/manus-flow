@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import math
-
 import torch
 from torch import Tensor
+
+from training_utils import geometric_sigmas
 
 
 def get_sigmas(
@@ -14,17 +14,10 @@ def get_sigmas(
     device: torch.device | str | None = None,
     dtype: torch.dtype = torch.float32,
 ) -> Tensor:
-    if sigma_begin <= 0 or sigma_end <= 0:
-        raise ValueError("sigma_begin and sigma_end must be positive")
-    if num_classes <= 0:
-        raise ValueError("num_classes must be positive")
-
-    return torch.exp(
-        torch.linspace(
-            math.log(sigma_begin),
-            math.log(sigma_end),
-            steps=num_classes,
-            device=device,
-            dtype=dtype,
-        )
+    return geometric_sigmas(
+        sigma_begin,
+        sigma_end,
+        num_classes,
+        device=device,
+        dtype=dtype,
     )

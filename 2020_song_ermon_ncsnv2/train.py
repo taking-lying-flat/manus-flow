@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import logging
-import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_DIR.parent))
 
 import torch
 from _impl.config import EXPERIMENT_CONFIG, DataConfig, build_runtime_config
@@ -15,12 +17,9 @@ from _impl.model import NCSNv2
 from _impl.scheduler import get_sigmas
 from _impl.solver import anneal_Langevin_dynamics
 from torch import Tensor, nn
-from torchvision import utils as tv_utils
-
-PROJECT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(PROJECT_DIR.parent))
 
 from dataloader import DATASET, build_cifar10_loader, infinite_images
+from training_utils import save_image_grid
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
@@ -69,12 +68,7 @@ def generate_samples(
         denoise=True,
     )[0]
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    tv_utils.save_image(
-        samples.clamp(0.0, 1.0).cpu(),
-        out_path,
-        nrow=max(1, int(math.sqrt(num_samples))),
-    )
+    save_image_grid(samples.clamp(0.0, 1.0), out_path)
 
 
 def train(args: TrainArgs) -> None:

@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import logging
-import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parent
+sys.path.insert(0, str(PROJECT_DIR.parent))
 
 import torch
 from _impl.cond_refinenet_dilated import CondRefineNetDilated
@@ -13,10 +15,6 @@ from _impl.loss import anneal_dsm_score_estimation
 from _impl.scheduler import get_sigmas
 from _impl.solver import anneal_langevin_dynamics
 from torch import Tensor
-from torchvision import utils as tv_utils
-
-PROJECT_DIR = Path(__file__).resolve().parent
-sys.path.insert(0, str(PROJECT_DIR.parent))
 
 from dataloader import (
     CIFAR10_SPEC,
@@ -25,6 +23,7 @@ from dataloader import (
     build_cifar10_loader,
     infinite_images,
 )
+from training_utils import save_image_grid
 
 logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
@@ -92,9 +91,7 @@ def generate_samples(
     if not isinstance(samples, Tensor):
         raise TypeError("sampler unexpectedly returned a trajectory")
 
-    out_path.parent.mkdir(parents=True, exist_ok=True)
-    nrow = max(1, int(math.sqrt(num_samples)))
-    tv_utils.save_image(samples.cpu(), out_path, nrow=nrow)
+    save_image_grid(samples, out_path)
     if was_training:
         model.train()
 
