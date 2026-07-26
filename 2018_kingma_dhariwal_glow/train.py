@@ -4,7 +4,7 @@ from pathlib import Path
 
 import torch
 from _impl import Glow, calc_loss, calc_z_shapes, preprocess_image
-from torch import nn, optim
+from torch import optim
 from torchvision import utils
 
 PROJECT_DIR = Path(__file__).resolve().parent
@@ -98,12 +98,7 @@ def train(args: argparse.Namespace) -> None:
     in_channels = CHANNELS
     train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
 
-    model_single = build_model(args, in_channels).to(device)
-    model = (
-        nn.DataParallel(model_single).to(device)
-        if device.type == "cuda"
-        else model_single
-    )
+    model = build_model(args, in_channels).to(device)
     optimizer = optim.Adamax(model.parameters(), lr=args.lr)
 
     model.train()
@@ -113,7 +108,7 @@ def train(args: argparse.Namespace) -> None:
 
         if step == 1:
             with torch.no_grad():
-                model_single(image + torch.rand_like(image) / n_bins)
+                model(image + torch.rand_like(image) / n_bins)
             print(f"ActNorm initialized ({DATASET}, {image_size}x{image_size}).")
             continue
 
@@ -131,8 +126,8 @@ def train(args: argparse.Namespace) -> None:
             print(f"step={step}  loss={loss.item():.5f}  bpd={loss.item():.5f}")
 
         if step % args.ckpt_interval == 0 or step == args.iterations:
-            torch.save(model_single.state_dict(), ckpt_path)
-            save_samples(model_single, args, image_size, in_channels, step, output_dir)
+            torch.save(model.state_dict(), ckpt_path)
+            save_samples(model, args, image_size, in_channels, step, output_dir)
             print(f"Step {step}: saved checkpoint + samples")
 
 

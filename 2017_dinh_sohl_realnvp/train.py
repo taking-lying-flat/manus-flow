@@ -103,10 +103,7 @@ def train(args: argparse.Namespace) -> None:
     in_channels = CHANNELS
     train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
 
-    net_single = build_model(args, image_size, in_channels).to(device)
-    net = (
-        nn.DataParallel(net_single).to(device) if device.type == "cuda" else net_single
-    )
+    net = build_model(args, image_size, in_channels).to(device)
 
     loss_fn = RealNVPLoss()
     param_groups = get_param_groups(net, args.weight_decay)
@@ -139,8 +136,8 @@ def train(args: argparse.Namespace) -> None:
             running = {"loss": 0.0, "n": 0}
 
         if step % args.ckpt_interval == 0 or step == args.iterations:
-            torch.save(net_single.state_dict(), ckpt_path)
-            save_samples(net_single, args, image_size, in_channels, step, output_dir)
+            torch.save(net.state_dict(), ckpt_path)
+            save_samples(net, args, image_size, in_channels, step, output_dir)
             print(f"Step {step}: saved checkpoint + samples")
 
 

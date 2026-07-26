@@ -175,11 +175,12 @@ def train(args: argparse.Namespace) -> None:
         scaler.scale(loss).backward()
         scaler.unscale_(optimizer)
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        if torch.isfinite(grad_norm):
-            optimizer.step()
+        grad_is_finite = torch.isfinite(grad_norm).item()
+        if grad_is_finite:
+            scaler.step(optimizer)
+            scheduler.step()
         scaler.update()
         step += 1
-        scheduler.step()
 
         if step == 1 or step % 50 == 0:
             LOGGER.info(

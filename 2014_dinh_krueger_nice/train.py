@@ -96,10 +96,7 @@ def train(args: argparse.Namespace) -> None:
     input_dim = data_dim()
     train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
 
-    net_single = build_model(args, input_dim).to(device)
-    net = (
-        nn.DataParallel(net_single).to(device) if device.type == "cuda" else net_single
-    )
+    net = build_model(args, input_dim).to(device)
 
     param_groups = util.get_param_groups(net, args.weight_decay)
     optimizer = optim.Adam(param_groups, lr=args.lr)
@@ -137,8 +134,8 @@ def train(args: argparse.Namespace) -> None:
             running = {"nll": 0.0, "n": 0}
 
         if step % args.ckpt_interval == 0 or step == args.iterations:
-            torch.save(net_single.state_dict(), ckpt_path)
-            save_samples(net_single, args, channels, image_size, step, output_dir)
+            torch.save(net.state_dict(), ckpt_path)
+            save_samples(net, args, channels, image_size, step, output_dir)
             print(f"Step {step}: saved checkpoint + samples")
 
 
