@@ -1,4 +1,3 @@
-import pickle
 import sys
 from pathlib import Path
 
@@ -71,11 +70,6 @@ def train_epoch(model, train_loader, optimizer, device, epoch, epochs, history, 
     return avg_loss, avg_bce, avg_kld
 
 
-def save_history(history, save_path):
-    with open(save_path, "wb") as fp:
-        pickle.dump(history, fp)
-
-
 @torch.inference_mode()
 def save_samples(model, device, save_path, num_samples=64):
     was_training = model.training
@@ -97,8 +91,6 @@ def fit(model, train_loader, optimizer, device, epochs, save_dir, logger):
             model, train_loader, optimizer, device, epoch, epochs, history, logger
         )
 
-    logger.info("💾 Saving training history")
-    save_history(history, f"{save_dir}/history.pkl")
     logger.info("📷 Saving generated samples")
     save_samples(model, device, save_dir / "samples_final.png")
 
