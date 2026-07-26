@@ -6,12 +6,12 @@ import torch
 from bernoulli_vae import VAE
 from torch import optim
 from torchvision.utils import save_image
-from utils import setup_logger
 
 PROJECT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_DIR.parent))
 
 from dataloader import CIFAR10_SPEC, DATASET, build_cifar10_loader
+from training_utils import setup_logger
 
 IMAGE_SHAPE = (
     CIFAR10_SPEC.in_channels,
@@ -123,7 +123,7 @@ def main():
     save_dir = PROJECT_DIR / "output" / DATASET
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    logger = setup_logger(save_dir, log_file="train.log")
+    logger = setup_logger(save_dir, log_file="train.log", name="VAE")
 
     model = VAE(
         image_shape=IMAGE_SHAPE,
