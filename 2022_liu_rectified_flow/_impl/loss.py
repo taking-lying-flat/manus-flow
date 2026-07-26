@@ -1,14 +1,10 @@
 from collections import namedtuple
-from typing import Optional
 
-import torch
-from torch import Tensor
-from torch import nn
 import torch.nn.functional as F
+from einops import reduce
+from torch import Tensor, nn
 from torch.distributions import Normal
 from torchvision.models import VGG16_Weights
-
-from einops import reduce
 
 from .utils import default
 
@@ -32,7 +28,7 @@ class PseudoHuberLoss(nn.Module):
         pred: Tensor,
         target: Tensor,
         reduction: str = "mean",
-        data_dim: Optional[int] = None,
+        data_dim: int | None = None,
         **kwargs,
     ) -> Tensor:
         dim = default(data_dim, self.data_dim)
@@ -46,7 +42,7 @@ class PseudoHuberLoss(nn.Module):
 class LPIPSLoss(nn.Module):
     def __init__(
         self,
-        vgg: Optional[nn.Module] = None,
+        vgg: nn.Module | None = None,
         vgg_weights: VGG16_Weights = VGG16_Weights.DEFAULT,
     ):
         super().__init__()
@@ -69,7 +65,7 @@ class LPIPSLoss(nn.Module):
 
 
 class PseudoHuberLossWithLPIPS(nn.Module):
-    def __init__(self, data_dim: int = 3, lpips_kwargs: Optional[dict] = None):
+    def __init__(self, data_dim: int = 3, lpips_kwargs: dict | None = None):
         super().__init__()
         self.pseudo_huber = PseudoHuberLoss(data_dim)
         self.lpips = LPIPSLoss(**(lpips_kwargs or {}))

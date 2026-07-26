@@ -41,7 +41,7 @@ def train_epoch(model, train_loader, optimizer, device, epoch, epochs, history, 
     samples_cnt = 0
 
     for inputs, _ in train_loader:
-        inputs = inputs.to(device)
+        inputs = inputs.to(device, non_blocking=True)
         optimizer.zero_grad(set_to_none=True)
         recon_batch, mu, logvar = model(inputs)
 

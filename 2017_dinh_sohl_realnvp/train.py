@@ -111,7 +111,7 @@ def train(args: argparse.Namespace) -> None:
 
     for step in range(1, args.iterations + 1):
         x, _ = next(train_loader)
-        x = x.to(device)
+        x = x.to(device, non_blocking=True)
 
         z, sldj = net(x, reverse=False)
         loss = loss_fn(z, sldj)

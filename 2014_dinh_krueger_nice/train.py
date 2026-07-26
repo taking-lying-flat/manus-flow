@@ -103,7 +103,7 @@ def train(args: argparse.Namespace) -> None:
 
     for step in range(1, args.iterations + 1):
         x, _ = next(train_loader)
-        x = x.to(device)
+        x = x.to(device, non_blocking=True)
 
         x_proc, log_det_pre = util.preprocess(x, training=True)
         x_in = flatten(x_proc, channels, image_size)

@@ -1,16 +1,15 @@
-from typing import Optional, TypeVar
+from typing import TypeVar
 
-import torch
 from torch import Tensor
 
 T = TypeVar("T")
 
 
-def exists(v: Optional[T]) -> bool:
+def exists(v: T | None) -> bool:
     return v is not None
 
 
-def default(v: Optional[T], d: T) -> T:
+def default(v: T | None, d: T) -> T:
     return v if exists(v) else d
 
 

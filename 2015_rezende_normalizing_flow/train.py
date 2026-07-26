@@ -78,7 +78,7 @@ def train(args: argparse.Namespace) -> None:
     model.train()
     for step in range(1, args.iterations + 1):
         x, _ = next(train_loader)
-        x = x.to(device)
+        x = x.to(device, non_blocking=True)
         x = preprocess(x, training=True)
 
         beta = beta_schedule(step, args.beta_start, args.beta_warmup_steps)

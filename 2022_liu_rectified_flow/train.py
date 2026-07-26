@@ -129,7 +129,7 @@ def train(args: argparse.Namespace) -> None:
         data = next(train_loader)
         if isinstance(data, (tuple, list)):
             data = data[0]
-        data = data.to(device)
+        data = data.to(device, non_blocking=True)
 
         if data_shape is None:
             data_shape = tuple(data.shape[1:])

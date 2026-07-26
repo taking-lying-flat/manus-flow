@@ -114,7 +114,9 @@ def train(args: TrainArgs) -> None:
     )
 
     amp_enabled = device.type == "cuda"
-    scaler = torch.amp.GradScaler(device=device.type, enabled=amp_enabled)
+    scaler = torch.amp.GradScaler(
+        device=device.type, init_scale=1.0, enabled=amp_enabled
+    )
 
     LOGGER.info(
         "dataset=%s variant=%s ema=%s samples=%d device=%s",

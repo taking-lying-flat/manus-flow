@@ -130,7 +130,7 @@ def train(args: argparse.Namespace) -> None:
     )
 
     amp_enabled = device.type == "cuda"
-    scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
+    scaler = torch.amp.GradScaler("cuda", init_scale=1.0, enabled=amp_enabled)
 
     step = 0
     model: torch.nn.Module = raw_model

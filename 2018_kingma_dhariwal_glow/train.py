@@ -102,7 +102,8 @@ def train(args: argparse.Namespace) -> None:
     model.train()
     for step in range(1, args.iterations + 1):
         image, _ = next(train_loader)
-        image, n_bins = preprocess_image(image.to(device), args.n_bits)
+        image = image.to(device, non_blocking=True)
+        image, n_bins = preprocess_image(image, args.n_bits)
 
         if step == 1:
             with torch.no_grad():
