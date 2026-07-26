@@ -1,12 +1,18 @@
 import math
 from dataclasses import dataclass
+from typing import NamedTuple
+
 import torch
 from torch import nn
 from torch.nn import functional as F
-from .flow import FlowOutput
-
 
 LOG_2PI = math.log(2.0 * math.pi)
+
+
+class FlowOutput(NamedTuple):
+    z: torch.Tensor
+    log_det_sum: torch.Tensor
+    log_dets: torch.Tensor
 
 
 def diag_normal_log_prob(
@@ -191,10 +197,7 @@ class DLGMNF(nn.Module):
         flat = c * h * w
         if flat != input_dim:
             raise ValueError(
-                "image_shape C*H*W ({}) must equal input_dim ({})".format(
-                    flat,
-                    input_dim,
-                )
+                f"image_shape C*H*W ({flat}) must equal input_dim ({input_dim})"
             )
         self.image_shape = image_shape
 

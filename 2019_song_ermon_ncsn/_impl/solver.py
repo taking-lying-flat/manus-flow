@@ -28,37 +28,6 @@ def _snapshot(x: Tensor, clamp: bool) -> Tensor:
 
 
 @torch.inference_mode()
-def langevin_dynamics(
-    scorenet: ScoreNet,
-    x_mod: Tensor,
-    n_steps: int = 200,
-    step_lr: float = 0.00005,
-    record_every: int | None = None,
-    *,
-    clamp_output: bool = True,
-) -> Tensor | list[Tensor]:
-    _validate_sampling_args(n_steps, step_lr, record_every)
-    history: list[Tensor] = []
-    noise_scale = (2.0 * step_lr) ** 0.5
-
-    for step in range(n_steps):
-        x_mod = (
-            x_mod
-            + step_lr * scorenet(x_mod)
-            + noise_scale * torch.randn_like(x_mod)
-        )
-        if record_every is not None and (step + 1) % record_every == 0:
-            history.append(_snapshot(x_mod, clamp_output))
-
-    if record_every is None:
-        return x_mod.clamp(0.0, 1.0) if clamp_output else x_mod
-
-    if n_steps % record_every != 0:
-        history.append(_snapshot(x_mod, clamp_output))
-    return history
-
-
-@torch.inference_mode()
 def anneal_langevin_dynamics(
     scorenet: ScoreNet,
     x_mod: Tensor,

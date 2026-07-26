@@ -43,8 +43,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def preprocess(x: torch.Tensor, training: bool) -> torch.Tensor:
-    return torch.bernoulli(x) if training else (x > 0.5).float()
+def preprocess(x: torch.Tensor) -> torch.Tensor:
+    return torch.bernoulli(x)
 
 
 @torch.no_grad()
@@ -79,7 +79,7 @@ def train(args: argparse.Namespace) -> None:
     for step in range(1, args.iterations + 1):
         x, _ = next(train_loader)
         x = x.to(device, non_blocking=True)
-        x = preprocess(x, training=True)
+        x = preprocess(x)
 
         beta = beta_schedule(step, args.beta_start, args.beta_warmup_steps)
         out = model(x, beta=beta)

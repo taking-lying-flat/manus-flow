@@ -25,14 +25,6 @@ LEARNING_RATE = 1e-3
 NUM_WORKERS = 8
 
 
-def load_data(batch_size: int, num_workers: int):
-    return build_cifar10_loader(
-        batch_size,
-        num_workers=num_workers,
-        drop_last=False,
-    )
-
-
 def train_epoch(model, train_loader, optimizer, device, epoch, epochs, history, logger):
     model.train()
     train_loss = 0
@@ -114,7 +106,11 @@ def main():
     if device == "cuda":
         torch.backends.cudnn.benchmark = True
 
-    train_loader = load_data(BATCH_SIZE, NUM_WORKERS)
+    train_loader = build_cifar10_loader(
+        BATCH_SIZE,
+        num_workers=NUM_WORKERS,
+        drop_last=False,
+    )
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
     logger.info(

@@ -1,2 +1,1 @@
-from .nice import NICE
-from .modules import CouplingLayer, LogisticDistribution, ScalingLayer
+from .nice import NICE as NICE

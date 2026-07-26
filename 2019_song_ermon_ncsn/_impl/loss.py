@@ -3,53 +3,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import torch
-import torch.autograd as autograd
 from torch import Tensor
-
-
-def _per_sample_sum(x: Tensor) -> Tensor:
-    return x.flatten(1).sum(dim=1)
 
 
 def _per_sample_squared_norm(x: Tensor) -> Tensor:
     x = x.flatten(1)
     return (x * x).sum(dim=1)
-
-
-def _validate_sigma(sigma: float) -> None:
-    if sigma <= 0:
-        raise ValueError("sigma must be positive")
-
-
-def dsm(
-    energy_net: Callable[[Tensor], Tensor],
-    samples: Tensor,
-    sigma: float = 1.0,
-) -> Tensor:
-    _validate_sigma(sigma)
-    x = samples.detach().requires_grad_(True)
-    noise = torch.randn_like(x)
-    perturbed = x + sigma * noise
-    logp = -energy_net(perturbed)
-    scaled_score = sigma**2 * autograd.grad(
-        logp.sum(),
-        perturbed,
-        create_graph=True,
-    )[0]
-    return 0.5 * _per_sample_squared_norm(scaled_score + sigma * noise).mean()
-
-
-def dsm_score_estimation(
-    scorenet: Callable[[Tensor], Tensor],
-    samples: Tensor,
-    sigma: float = 0.01,
-) -> Tensor:
-    _validate_sigma(sigma)
-    noise = torch.randn_like(samples)
-    perturbed = samples + sigma * noise
-    target = -noise / sigma
-    residual = (scorenet(perturbed) - target).float()
-    return 0.5 * _per_sample_squared_norm(residual).mean()
 
 
 def anneal_dsm_score_estimation(

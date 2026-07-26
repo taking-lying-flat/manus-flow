@@ -1,15 +1,16 @@
-from typing import Callable, Literal, Optional, Tuple
+from collections.abc import Callable
+from typing import Literal
 
 import torch
-from torch import Tensor, nn
 import torch.nn.functional as F
-
 from einops import rearrange, repeat
+from torch import Tensor, nn
 
+from .loss import LossBreakdown, build_loss_fn
 from .path import RectifiedFlowPath
 from .solver import ODESolver
-from .loss import LossBreakdown, build_loss_fn
 from .timestep_sampler import build_timestep_sampler
+from .unet import Unet
 from .utils import (
     append_dims,
     default,
@@ -18,8 +19,6 @@ from .utils import (
     normalize_to_neg_one_to_one,
     unnormalize_to_zero_to_one,
 )
-
-from .unet import Unet
 
 
 class EMA(nn.Module):
@@ -86,7 +85,7 @@ class RectifiedFlow(nn.Module):
         timestep_sampler: Literal["uniform", "logit_normal", "cosmap", "mode"] | str = "uniform",
         timestep_sampler_kwargs: dict | None = None,
         ema_update_after_step: int = 100,
-        data_shape: Optional[Tuple[int, ...]] = None,
+        data_shape: tuple[int, ...] | None = None,
         use_consistency: bool = False,
         max_timesteps: int = 100,
         consistency_decay: float = 0.9999,
@@ -96,9 +95,9 @@ class RectifiedFlow(nn.Module):
         data_normalize_fn: Callable = normalize_to_neg_one_to_one,
         data_unnormalize_fn: Callable = unnormalize_to_zero_to_one,
         clip_during_sampling: bool = False,
-        clip_values: Tuple[float, float] = (-1.0, 1.0),
-        clip_flow_during_sampling: Optional[bool] = None,
-        clip_flow_values: Tuple[float, float] = (-3.0, 3.0),
+        clip_values: tuple[float, float] = (-1.0, 1.0),
+        clip_flow_during_sampling: bool | None = None,
+        clip_flow_values: tuple[float, float] = (-3.0, 3.0),
         eps: float = 5e-3,
     ):
         super().__init__()
@@ -196,8 +195,8 @@ class RectifiedFlow(nn.Module):
         self,
         batch_size: int = 1,
         steps: int = 16,
-        noise: Optional[Tensor] = None,
-        data_shape: Optional[Tuple[int, ...]] = None,
+        noise: Tensor | None = None,
+        data_shape: tuple[int, ...] | None = None,
         use_ema: bool = False,
         **model_kwargs,
     ):
@@ -246,7 +245,7 @@ class RectifiedFlow(nn.Module):
     def forward(
         self,
         data,
-        noise: Optional[Tensor] = None,
+        noise: Tensor | None = None,
         return_loss_breakdown: bool = False,
         **model_kwargs,
     ):
@@ -289,7 +288,7 @@ class RectifiedFlow(nn.Module):
             delta_t = self.consistency_delta_time
             with torch.no_grad():
                 self.ema_model.eval()
-                ema_output, ema_flow, ema_pred_flow, ema_pred_data = (
+                _, _, ema_pred_flow, ema_pred_data = (
                     get_noised_and_flows(self.ema_model, times + delta_t)
                 )
 
