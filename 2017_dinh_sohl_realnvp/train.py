@@ -37,10 +37,10 @@ def parse_args() -> argparse.Namespace:
         "--log-interval", default=100, type=int, help="steps between loss prints"
     )
     parser.add_argument(
-        "--ckpt-interval",
+        "--sample-interval",
         default=5000,
         type=int,
-        help="steps between checkpoint saves (overwrites)",
+        help="steps between generated sample grids",
     )
     return parser.parse_args()
 
@@ -97,8 +97,6 @@ def save_samples(
 def train(args: argparse.Namespace) -> None:
     output_dir = PROJECT_DIR / "runs" / DATASET
     output_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = output_dir / "checkpoint.pt"
-
     image_size = IMAGE_SIZE
     in_channels = CHANNELS
     train_loader = infinite_batches(build_cifar10_loader(args.batch_size))
@@ -135,10 +133,9 @@ def train(args: argparse.Namespace) -> None:
             print(f"step={step}  loss={avg_loss:.2f}  bpd={float(bpd):.4f}")
             running = {"loss": 0.0, "n": 0}
 
-        if step % args.ckpt_interval == 0 or step == args.iterations:
-            torch.save(net.state_dict(), ckpt_path)
+        if step % args.sample_interval == 0 or step == args.iterations:
             save_samples(net, args, image_size, in_channels, step, output_dir)
-            print(f"Step {step}: saved checkpoint + samples")
+            print(f"Step {step}: saved samples")
 
 
 def main() -> None:

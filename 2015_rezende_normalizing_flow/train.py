@@ -35,10 +35,10 @@ def parse_args() -> argparse.Namespace:
         "--log-interval", default=100, type=int, help="steps between loss prints"
     )
     parser.add_argument(
-        "--ckpt-interval",
+        "--sample-interval",
         default=5000,
         type=int,
-        help="steps between checkpoint saves (overwrites)",
+        help="steps between generated sample grids",
     )
     return parser.parse_args()
 
@@ -59,8 +59,6 @@ def save_samples(model: DLGMNF, output_dir: Path, step: int) -> None:
 def train(args: argparse.Namespace) -> None:
     output_dir = PROJECT_DIR / "runs" / DATASET
     output_dir.mkdir(parents=True, exist_ok=True)
-    ckpt_path = output_dir / "checkpoint.pt"
-
     image_size = IMAGE_SIZE
     channels = CHANNELS
     image_shape = (channels, image_size, image_size)
@@ -100,10 +98,9 @@ def train(args: argparse.Namespace) -> None:
                 f"  log_det={out.log_det_sum.mean().item():.4f}"
             )
 
-        if step % args.ckpt_interval == 0 or step == args.iterations:
-            torch.save(model.state_dict(), ckpt_path)
+        if step % args.sample_interval == 0 or step == args.iterations:
             save_samples(model, output_dir, step)
-            print(f"Step {step}: saved checkpoint + samples")
+            print(f"Step {step}: saved samples")
 
 
 def main() -> None:

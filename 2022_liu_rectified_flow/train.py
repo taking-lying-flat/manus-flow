@@ -148,15 +148,16 @@ def train(args: argparse.Namespace) -> None:
             print(f"step={step}  loss={loss.item():.6f}")
 
         if step % args.ckpt_interval == 0 or step == args.iterations:
-            torch.save(
-                {
-                    "model": rf.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "step": step,
-                    "data_shape": data_shape,
-                },
-                ckpt_path,
-            )
+            if args.use_consistency:
+                torch.save(
+                    {
+                        "model": rf.state_dict(),
+                        "optimizer": optimizer.state_dict(),
+                        "step": step,
+                        "data_shape": data_shape,
+                    },
+                    ckpt_path,
+                )
             save_samples(
                 rf,
                 data_shape,
@@ -164,7 +165,8 @@ def train(args: argparse.Namespace) -> None:
                 step,
                 output_dir,
             )
-            print(f"Step {step}: saved checkpoint + samples")
+            saved = "EMA checkpoint + samples" if args.use_consistency else "samples"
+            print(f"Step {step}: saved {saved}")
 
 
 def main() -> None:

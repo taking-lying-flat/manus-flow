@@ -71,16 +71,6 @@ def train_epoch(model, train_loader, optimizer, device, epoch, epochs, history, 
     return avg_loss, avg_bce, avg_kld
 
 
-def save_checkpoint(model, optimizer, epoch, history, save_path):
-    checkpoint = {
-        "epoch": epoch,
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "history": history,
-    }
-    torch.save(checkpoint, save_path)
-
-
 def save_history(history, save_path):
     with open(save_path, "wb") as fp:
         pickle.dump(history, fp)
@@ -107,10 +97,7 @@ def fit(model, train_loader, optimizer, device, epochs, save_dir, logger):
             model, train_loader, optimizer, device, epoch, epochs, history, logger
         )
 
-    logger.info("💾 Saving checkpoint and history")
-    save_checkpoint(
-        model, optimizer, epochs, history, f"{save_dir}/checkpoint_final.pth"
-    )
+    logger.info("💾 Saving training history")
     save_history(history, f"{save_dir}/history.pkl")
     logger.info("📷 Saving generated samples")
     save_samples(model, device, save_dir / "samples_final.png")
