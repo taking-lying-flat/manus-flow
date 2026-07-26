@@ -85,14 +85,3 @@ import importlib
 torchdiffeq_local = importlib.import_module("2018_chen_torchdiffeq")
 odeint = torchdiffeq_local.odeint
 ```
-
-## 代码检查
-
-```bash
-python -m compileall -q .
-ruff check .
-```
-
-## License
-
-见 `LICENSE`。
