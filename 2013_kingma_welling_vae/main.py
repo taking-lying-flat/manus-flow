@@ -5,7 +5,8 @@ from pathlib import Path
 import torch
 from bernoulli_vae import VAE
 from torch import optim
-from utils import create_visualization_grid, setup_logger
+from torchvision.utils import save_image
+from utils import setup_logger
 
 PROJECT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_DIR.parent))
@@ -85,6 +86,15 @@ def save_history(history, save_path):
         pickle.dump(history, fp)
 
 
+@torch.inference_mode()
+def save_samples(model, device, save_path, num_samples=64):
+    was_training = model.training
+    model.eval()
+    samples = model.sample(num_samples, device=device)
+    save_image(samples.cpu(), save_path, nrow=8)
+    model.train(was_training)
+
+
 def fit(model, train_loader, optimizer, device, epochs, save_dir, logger):
     history = {
         "train_loss": [],
@@ -102,8 +112,8 @@ def fit(model, train_loader, optimizer, device, epochs, save_dir, logger):
         model, optimizer, epochs, history, f"{save_dir}/checkpoint_final.pth"
     )
     save_history(history, f"{save_dir}/history.pkl")
-    logger.info("📷 Saving reconstruction & sample figures")
-    create_visualization_grid(model, train_loader, device, save_dir, "final")
+    logger.info("📷 Saving generated samples")
+    save_samples(model, device, save_dir / "samples_final.png")
 
     return history
 
